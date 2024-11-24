@@ -218,6 +218,118 @@ terraform apply tfplan
 terraform destroy
 ```
 
+## Using Local Docker Images with Azure Container Instances (ACI)
+### Overview
+This section covers the process of building a Docker image locally, pushing it to Azure Container Registry (ACR), and deploying it to Azure Container Instances (ACI) using Terraform.
+
+### Steps
+
+#### 1. Build and Tag the Docker Image Locally
+```bash
+dotnet new blazorserver -n MyBlazorApp
+cd MyBlazorApp
+dotnet run 
+```
+Create Dockerfile in project root folder
+```dockerfile
+  # Stage 1: Build the app
+  FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+  WORKDIR /app
+  COPY *.csproj .
+  RUN dotnet restore
+  COPY . .
+  RUN dotnet publish -c Release -o /publish
+  
+  # Stage 2: Runtime image
+  FROM mcr.microsoft.com/dotnet/aspnet:9.0
+  WORKDIR /app
+  COPY --from=build /publish .
+  EXPOSE 5000
+  ENTRYPOINT ["dotnet", "MyBlazorApp.dll"]
+```
+
+```bash
+docker build -t myacrregistry.azurecr.io/myblazorapp:v1 .
+```
+
+#### 2. Push the Image to Azure Container Registry (ACR)
+```bash
+  az acr login --name myacrregistry
+```
+```bash
+docker push myacrregistry.azurecr.io/myblazorapp:v1
+```
+Verify image successfully pushed
+```bash
+az acr repository list --name myacrregistry --output table
+```
+
+#### 3. Deploy the Image to Azure Container Instances (ACI) Using Terraform
+```hcl
+FileName: variables.tf
+
+ variable "acr_name" {
+  description = "The name of the Azure Container Registry."
+  default     = "myacrregistry"
+}
+
+variable "docker_image_name" {
+  description = "The name of the Docker image for the Blazor app."
+  default     = "myblazorapp"
+}
+
+variable "docker_image_tag" {
+  description = "The tag for the Docker image."
+  default     = "v1"
+}
+```
+
+```hcl
+FileName: main.tf
+# Reference the Azure Container Registry
+resource "azurerm_container_registry" "acr" {
+  name                = var.acr_name
+  resource_group_name = azurerm_resource_group.aci_group.name
+  location            = azurerm_resource_group.aci_group.location
+}
+
+# Use the image from ACR in the container group
+resource "azurerm_container_group" "aci" {
+  name                = var.container_group_name
+  location            = azurerm_resource_group.aci_group.location
+  resource_group_name = azurerm_resource_group.aci_group.name
+  os_type             = "Linux"
+
+  container {
+    name   = "blazor-app-container"
+    image  = "${azurerm_container_registry.acr.login_server}/${var.docker_image_name}:${var.docker_image_tag}"
+    cpu    = local.container_cpu
+    memory = local.container_memory
+
+    ports {
+      port     = local.container_port
+      protocol = "TCP"
+    }
+  }
+
+  ip_address_type = "Public"
+  dns_name_label  = "blazor-${var.container_group_name}"
+}
+```
+
+```hcl
+FileName: output.tf
+
+output "container_dns_name" {
+  description = "Publicly accessible DNS name for the Blazor app container"
+  value       = "${azurerm_container_group.aci.dns_name_label}.${azurerm_resource_group.aci_group.location}.azurecontainer.io"
+}
+```
+
+### Steps Summary
+- Use Docker CLI for local image creation.
+- Use Azure CLI for ACR authentication and image push.
+- Use Terraform for provisioning the container instance and referencing the ACR image.
 
 
 
