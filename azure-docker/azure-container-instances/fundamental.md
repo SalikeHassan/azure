@@ -66,8 +66,8 @@ az container create \
 --ports: Specifies ports to open.
 --cpu and --memory: Allocates resources (default: 1 CPU, 1.5 GB memory).
 ```
-### 2. az container logs \
- ```bash  
+ ```bash
+    az container logs \
     -g <resource-group> \
     -n <container-group-name>
 ```
