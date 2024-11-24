@@ -1,56 +1,28 @@
-# Azure Provider in Terraform
+## Azure Providers for Terraform
 
-## Overview
-The **Azure Provider** (`azurerm`) is used to interact with Azure resources via Terraform. It allows the management of Azure services, such as virtual machines, storage accounts, networking, and more.
+### Available Providers
+- **AzureRM**: The primary provider for managing Azure resources.
+- **AzureAD**: Used for managing Azure Active Directory resources.
+- **Azure DevOps**: Manages Azure DevOps projects, repositories, pipelines, and more.
 
----
+### Authentication Types
+- **Service Principal with Client Secret**:
+  - Requires `client_id`, `client_secret`, `tenant_id`, and `subscription_id`.
+- **Service Principal with Client Certificate**:
+  - Uses a certificate instead of a client secret for authentication.
+- **Managed Service Identity (MSI)**:
+  - Utilizes Azure's managed identities for Azure resources, removing the need for explicit credentials.
+- **CLI Authentication**:
+  - Uses Azure CLI for authentication, convenient for local development.
 
-## Key Features
-1. **Manage Infrastructure**:
-   - Create, update, and delete Azure resources programmatically.
+### Best Practices for Managing Sensitive Information
+- **Environment Variables**: Store sensitive information like `client_id`, `client_secret`, and `tenant_id` in environment variables instead of hardcoding them in Terraform files.
+- **Azure Key Vault**: Use Azure Key Vault to securely store secrets and access them through Terraform using the Key Vault provider.
+- **Terraform Cloud/Enterprise**: Store sensitive information in Terraform Cloud or Enterprise workspaces as environment variables.
 
-2. **Multi-Region Deployments**:
-   - Support for deploying resources across multiple Azure regions.
-
-3. **Secure Authentication**:
-   - Use Azure CLI, Managed Identity, or Service Principal for authentication.
-
-4. **Tagging and Governance**:
-   - Easily apply and manage resource tags for organizational compliance.
-
----
-
-## Use Cases
-1. **Infrastructure Automation**:
-   - Automate the provisioning of Azure resources (e.g., VMs, Storage, Networking).
-
-2. **Multi-Region Deployments**:
-   - Deploy resources in multiple Azure regions for high availability.
-
-3. **Dev/Test Environments**:
-   - Quickly set up and tear down test environments.
-
-4. **Hybrid Environments**:
-   - Integrate on-premises and Azure resources.
-
-5. **Resource Governance**:
-   - Ensure consistent tagging and governance policies.
-
----
-
-## Required Configuration
-To use the Azure provider, the following basic configuration is required:
-1. **Azure CLI Authentication** (default and recommended):
-   - Ensure you are logged in to Azure using:
-     ```bash
-     az login
-     ```
-
-2. **Service Principal Authentication**:
-   - Create a Service Principal:
-     ```bash
-     az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/<subscription_id>"
-     ```
-   - Use the `client_id`, `client_secret`, `tenant_id`, and `subscription_id` in the provider block.
-
----
+### Comparison Table of Azure Providers
+| Provider  | Use Case                                   | Why Use This Provider                                 |
+|-----------|-------------------------------------------|--------------------------------------------|
+| AzureRM    | Managing Azure resources like VMs, storage, and networks | Comprehensive management of Azure infrastructure |
+| AzureAD    | Managing Azure Active Directory resources      | Ideal for identity and access management tasks |
+| Azure DevOps | Managing Azure DevOps resources like repos and pipelines | Streamlines DevOps processes within Azure |
