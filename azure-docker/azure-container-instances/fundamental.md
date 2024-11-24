@@ -72,4 +72,154 @@ az container create \
     -n <container-group-name>
 ```
 
+## Create ACI using terraform
+```hcl
+FileName: variables.tf
+
+# Define all configurable variables for reusability and clarity
+
+# Resource group name
+variable "resource_group_name" {
+  description = "The name of the resource group to create."
+  default     = "AciResourceGroup"
+}
+
+# Azure region
+variable "location" {
+  description = "The Azure region where resources will be created."
+  default     = "West Europe"
+}
+
+# Storage account name
+variable "storage_account_name" {
+  description = "Unique name for the storage account."
+  default     = "acicontainerstore"
+}
+
+# File share name
+variable "file_share_name" {
+  description = "The name of the Azure file share."
+  default     = "acishare"
+}
+
+# Container group name
+variable "container_group_name" {
+  description = "The name of the Azure container group."
+  default     = "aci-sample-group"
+}
+
+# Container image
+variable "container_image" {
+  description = "The Docker image to run in the container."
+  default     = "nginx:latest"
+}
+```
+```hcl
+FileName: local.tf
+# Define local values for derived variables or reusable values
+locals {
+  container_cpu     = "1"         # CPU allocated to the container
+  container_memory  = "1.5"       # Memory allocated to the container
+  container_port    = 80          # Port exposed by the container
+  storage_tier      = "Standard"  # Storage account tier
+  replication_type  = "LRS"       # Replication type for the storage account
+  mount_path        = "/mnt/share" # Mount path for the Azure file share in the container
+}
+```
+
+```hcl
+FileName: main.tf
+# Define the Azure provider
+provider "azurerm" {
+  features {}
+}
+
+# Create a resource group
+resource "azurerm_resource_group" "aci_group" {
+  name     = var.resource_group_name
+  location = var.location
+
+  # Inline comment: This resource group will house all the ACI resources.
+}
+
+# Create a storage account
+resource "azurerm_storage_account" "aci_storage" {
+  name                     = var.storage_account_name
+  resource_group_name      = azurerm_resource_group.aci_group.name
+  location                 = azurerm_resource_group.aci_group.location
+  account_tier             = local.storage_tier
+  account_replication_type = local.replication_type
+
+  # Inline comment: This storage account is used to create and manage a file share for the container.
+}
+
+# Create a file share in the storage account
+resource "azurerm_storage_share" "aci_share" {
+  name                 = var.file_share_name
+  storage_account_name = azurerm_storage_account.aci_storage.name
+
+  # Inline comment: File share to be mounted inside the container for persistent storage.
+}
+
+# Create the Azure container group
+resource "azurerm_container_group" "aci" {
+  name                = var.container_group_name
+  location            = azurerm_resource_group.aci_group.location
+  resource_group_name = azurerm_resource_group.aci_group.name
+  os_type             = "Linux"  # Specify the OS type for the container
+
+  # Container definition
+  container {
+    name   = "sample-container"
+    image  = var.container_image  # Docker image for the container
+    cpu    = local.container_cpu
+    memory = local.container_memory
+
+    # Define the port to expose
+    ports {
+      port     = local.container_port
+      protocol = "TCP"
+    }
+
+    # Mount Azure file share as a volume
+    volume {
+      name                 = "volume1"
+      mount_path           = local.mount_path
+      storage_account_name = azurerm_storage_account.aci_storage.name
+      storage_account_key  = azurerm_storage_account.aci_storage.primary_access_key
+      share_name           = azurerm_storage_share.aci_share.name
+    }
+  }
+
+  # Expose the container with a DNS name
+  ip_address_type = "Public"  # Publicly accessible IP
+  dns_name_label  = "aci-public-dns-${var.container_group_name}" # DNS label for the container group
+
+  # Inline comment: DNS name will be publicly available as "<dns_name_label>.region.azurecontainer.io".
+}
+```
+
+```hcl
+FileName: output.tf
+# Output the DNS name assigned to the container
+output "container_dns_name" {
+  description = "Publicly accessible DNS name for the Azure Container Instance"
+  value       = "${azurerm_container_group.aci.dns_name_label}.${azurerm_resource_group.aci_group.location}.azurecontainer.io"
+
+  # Inline comment: This output provides the complete URL to access the container.
+}
+```
+
+### Terraform Command
+```bash
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+terraform destroy
+```
+
+
+
+
+
 
